@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SECRETS_PATH = PROJECT_ROOT / "data" / "secrets.json"
+RPI_CONFIG_PATH = PROJECT_ROOT / "data" / "rpi.json"
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,9 @@ class AppConfig:
     secret_code: str
     service_url: str
     service_token: str
+    job_runner_enabled: bool
+    job_request_interval_seconds: int
+    job_request_timeout_seconds: int
 
 
 def _non_empty_env(name: str) -> str | None:
@@ -28,6 +32,45 @@ def _non_empty_env(name: str) -> str | None:
 
     value = value.strip()
     return value or None
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = _non_empty_env(name)
+    if value is None:
+        return default
+
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
+    return bool(value)
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    value = _non_empty_env(name)
+    if value is None:
+        return default
+
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+
+    return max(minimum, parsed)
 
 
 def _read_secrets(path: Path = SECRETS_PATH) -> dict[str, Any]:
@@ -53,5 +96,16 @@ def load_config() -> AppConfig:
         service_url=_non_empty_env("SERVICE_URL") or str(secrets.get("service_url", "")),
         service_token=(
             _non_empty_env("SERVICE_TOKEN") or str(secrets.get("service_token", ""))
+        ),
+        job_runner_enabled=_env_bool(
+            "JOB_RUNNER_ENABLED", _as_bool(secrets.get("job_runner_enabled"), False)
+        ),
+        job_request_interval_seconds=_env_int(
+            "JOB_REQUEST_INTERVAL_SECONDS",
+            _as_int(secrets.get("job_request_interval_seconds"), 15),
+        ),
+        job_request_timeout_seconds=_env_int(
+            "JOB_REQUEST_TIMEOUT_SECONDS",
+            _as_int(secrets.get("job_request_timeout_seconds"), 10),
         ),
     )

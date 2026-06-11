@@ -9,6 +9,7 @@ from urllib.request import urlopen
 from fastapi import APIRouter
 
 from app.config import load_config
+from app.gpio import execute_touch
 
 
 router = APIRouter()
@@ -98,8 +99,23 @@ def _read_service_verify(
 
 
 @router.post("/api/touch")
-def touch() -> dict[str, bool]:
-    return {"error": False}
+def touch() -> dict[str, Any]:
+    try:
+        result = execute_touch()
+    except Exception as error:
+        return {
+            "error": True,
+            "message": str(error),
+        }
+
+    return {
+        "error": False,
+        "data": {
+            "command": result.command,
+            "simulated": result.simulated,
+            "steps": result.steps,
+        },
+    }
 
 
 @router.get("/api/info")
@@ -119,5 +135,7 @@ def info() -> dict[str, Any]:
             "connection": service_verify["connection"],
             "verified": service_verify["verified"],
             "blocked": service_verify["blocked"],
+            "job_runner_enabled": config.job_runner_enabled,
+            "job_request_interval_seconds": config.job_request_interval_seconds,
         },
     }
