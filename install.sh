@@ -122,18 +122,18 @@ if [[ ! -f "${PROJECT_DIR}/data/rpi.json" ]]; then
   cat >"${PROJECT_DIR}/data/rpi.json" <<'JSON'
 {
   "GPIO": {
-    "GPIO 14": {
+    "GPIO 18": {
       "mode": "output",
       "state": "low"
     }
   },
   "job": {
     "touch": {
-      "uses": ["GPIO 14"],
+      "uses": ["GPIO 18"],
       "action": [
-        {"GPIO 14": "high"},
+        {"GPIO 18": "high"},
         {"wait": 0.3},
-        {"GPIO 14": "low"},
+        {"GPIO 18": "low"},
         {"wait": 0.7}
       ]
     }
