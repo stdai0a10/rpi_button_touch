@@ -16,6 +16,8 @@ RPI_CONFIG_PATH = PROJECT_ROOT / "data" / "rpi.json"
 
 @dataclass(frozen=True)
 class AppConfig:
+    app_name: str
+    app_version: str
     serial_code: str
     secret_code: str
     service_url: str
@@ -23,6 +25,9 @@ class AppConfig:
     job_runner_enabled: bool
     job_request_interval_seconds: int
     job_request_timeout_seconds: int
+    test_serial_number: str
+    test_secret: str
+    test_product_function_code: str
 
 
 def _non_empty_env(name: str) -> str | None:
@@ -91,8 +96,15 @@ def load_config() -> AppConfig:
     secrets = _read_secrets()
 
     return AppConfig(
-        serial_code=str(secrets.get("serial_code", "")),
-        secret_code=str(secrets.get("secret_code", "")),
+        app_name=(
+            _non_empty_env("APP_NAME")
+            or str(secrets.get("app_name", "rpi-button-touch"))
+        ),
+        app_version=(
+            _non_empty_env("APP_VERSION") or str(secrets.get("app_version", "1.0.0"))
+        ),
+        serial_code=_non_empty_env("SERIAL_CODE") or str(secrets.get("serial_code", "")),
+        secret_code=_non_empty_env("SECRET_CODE") or str(secrets.get("secret_code", "")),
         service_url=_non_empty_env("SERVICE_URL") or str(secrets.get("service_url", "")),
         service_token=(
             _non_empty_env("SERVICE_TOKEN") or str(secrets.get("service_token", ""))
@@ -107,5 +119,18 @@ def load_config() -> AppConfig:
         job_request_timeout_seconds=_env_int(
             "JOB_REQUEST_TIMEOUT_SECONDS",
             _as_int(secrets.get("job_request_timeout_seconds"), 10),
+        ),
+        test_serial_number=(
+            _non_empty_env("TEST_SERIAL_NUMBER")
+            or str(secrets.get("test_serial_number", "TEST0001"))
+        ),
+        test_secret=(
+            _non_empty_env("TEST_SECRET") or str(secrets.get("test_secret", "TEST0001"))
+        ),
+        test_product_function_code=(
+            _non_empty_env("TEST_PRODUCT_FUNCTION_CODE")
+            or str(
+                secrets.get("test_product_function_code", "PFN-WRKWI2STAEYU")
+            )
         ),
     )
