@@ -121,21 +121,70 @@ if [[ ! -f "${PROJECT_DIR}/data/rpi.json" ]]; then
   echo "Creating default data/rpi.json..."
   cat >"${PROJECT_DIR}/data/rpi.json" <<'JSON'
 {
-  "GPIO": {
-    "GPIO 18": {
-      "mode": "output",
-      "state": "low"
+  "product_code": "S-T-DAI-00001-RPI-1",
+  "function": {
+    "PFN-MIRAICHANKWI": {
+      "jobs": ["touch"],
+      "order": "sequence"
+    },
+    "PFN-SHIZUKAKAWAI": {
+      "jobs": ["turn-on"],
+      "order": "sequence"
+    },
+    "PFN-TSUBASAKAWAI": {
+      "jobs": ["turn-off"],
+      "order": "sequence"
     }
   },
   "job": {
     "touch": {
-      "uses": ["GPIO 18"],
+      "uses": [
+        {
+          "name": "GPIO 18",
+          "type": "GPIO",
+          "value": 18
+        }
+      ],
       "action": [
         {"GPIO 18": "high"},
         {"wait": 0.3},
         {"GPIO 18": "low"},
-        {"wait": 0.7}
+        {"wait": 0.5}
       ]
+    },
+    "turn-on": {
+      "uses": [
+        {
+          "name": "GPIO 19",
+          "type": "GPIO",
+          "value": 19
+        }
+      ],
+      "action": [
+        {"GPIO 19": "high"}
+      ]
+    },
+    "turn-off": {
+      "uses": [
+        {
+          "name": "GPIO 19",
+          "type": "GPIO",
+          "value": 19
+        }
+      ],
+      "action": [
+        {"GPIO 19": "low"}
+      ]
+    }
+  },
+  "GPIO": {
+    "18": {
+      "mode": "output",
+      "state": "low"
+    },
+    "19": {
+      "mode": "output",
+      "state": "low"
     }
   }
 }
