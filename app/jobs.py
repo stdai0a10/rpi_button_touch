@@ -11,7 +11,7 @@ from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
 from app.config import AppConfig, load_config
-from app.gpio import execute_touch
+from app.gpio import configured_function_codes, execute_function, execute_touch, product_code
 
 
 LOGGER = logging.getLogger(__name__)
@@ -62,14 +62,17 @@ def _service_headers(config: AppConfig) -> dict[str, str]:
 
 
 def _job_request_payload(config: AppConfig) -> dict[str, Any]:
+    capabilities = configured_function_codes()
+
     return {
         "serial_code": config.serial_code,
         "secret_code": config.secret_code,
+        "product_code": product_code(),
         "runner": {
             "name": "rpi-button-touch",
             "version": "1",
         },
-        "capabilities": ["Touch"],
+        "capabilities": capabilities,
         "requested_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
 
@@ -117,12 +120,52 @@ def request_jobs(config: AppConfig | None = None) -> list[dict[str, Any]]:
     return _extract_jobs(body)
 
 
+def _job_function_code(job: dict[str, Any]) -> str | None:
+    payload = job.get("payload")
+    value: Any = None
+
+    if isinstance(payload, dict):
+        value = payload.get("product_function_code")
+    if value is None:
+        value = job.get("product_function_code")
+
+    if value is None:
+        return None
+
+    function_code = str(value).strip()
+    return function_code or None
+
+
 def execute_job(job: dict[str, Any]) -> JobExecutionResult:
     command = str(
         job.get("command") or job.get("type") or job.get("action") or job.get("name") or ""
     )
     job_id = job.get("id")
     job_id_text = str(job_id) if job_id is not None else None
+
+    function_code = _job_function_code(job)
+    if function_code is not None:
+        results = execute_function(function_code)
+        if len(results) == 1:
+            data = asdict(results[0])
+            data["function_code"] = function_code
+
+            return JobExecutionResult(
+                job_id=job_id_text,
+                command=results[0].command,
+                success=True,
+                data=data,
+            )
+
+        return JobExecutionResult(
+            job_id=job_id_text,
+            command=function_code,
+            success=True,
+            data={
+                "function_code": function_code,
+                "jobs": [asdict(result) for result in results],
+            },
+        )
 
     if command.lower() != "touch":
         return JobExecutionResult(
