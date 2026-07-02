@@ -60,7 +60,7 @@ _TOKEN_STATE = DeviceTokenState()
 
 
 def _api_url(config: AppConfig, path: str) -> str:
-    return f"{config.service_url.rstrip('/')}{path}"
+    return f"{config.service_api_url.rstrip('/')}/{path.lstrip('/')}"
 
 
 def _parse_json_body(raw_body: str) -> Any:
@@ -134,8 +134,8 @@ def _request_long_token(config: AppConfig) -> str:
         config,
         "/api/device-auth/long-token",
         {
-            "name": config.app_name,
-            "version": config.app_version,
+            "name": config.name,
+            "version": config.version,
             "serial_number": config.serial_code,
             "secret": config.secret_code,
             "capabilities": configured_function_codes(),
@@ -212,7 +212,7 @@ def _poll_job(config: AppConfig, access_token: str) -> dict[str, Any] | None:
 
 def request_jobs(config: AppConfig | None = None) -> list[dict[str, Any]]:
     config = config or load_config()
-    if not config.service_url:
+    if not config.service_api_url:
         return []
 
     access_token = _ensure_access_token(config)
@@ -411,13 +411,13 @@ def _failed_job_result(
 
 def poll_and_run_jobs(config: AppConfig | None = None) -> JobPollResult:
     config = config or load_config()
-    if not config.service_url:
+    if not config.service_api_url:
         return JobPollResult(
             connection=False,
             jobs_received=0,
             jobs_executed=0,
             results=[],
-            error="SERVICE_URL is not configured",
+            error="SERVICE_API_URL is not configured",
         )
 
     if not _JOB_LOCK.acquire(blocking=False):

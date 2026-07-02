@@ -117,78 +117,14 @@ fi
 
 mkdir -p "${PROJECT_DIR}/data"
 
-if [[ ! -f "${PROJECT_DIR}/data/rpi.json" ]]; then
-  echo "Creating default data/rpi.json..."
-  cat >"${PROJECT_DIR}/data/rpi.json" <<'JSON'
-{
-  "product_code": "S-T-DAI-00001-RPI-1",
-  "function": {
-    "PFN-MIRAICHANKWI": {
-      "jobs": ["touch"],
-      "order": "sequence"
-    },
-    "PFN-SHIZUKAKAWAI": {
-      "jobs": ["turn-on"],
-      "order": "sequence"
-    },
-    "PFN-TSUBASAKAWAI": {
-      "jobs": ["turn-off"],
-      "order": "sequence"
-    }
-  },
-  "job": {
-    "touch": {
-      "uses": [
-        {
-          "name": "GPIO 18",
-          "type": "GPIO",
-          "value": 18
-        }
-      ],
-      "action": [
-        {"GPIO 18": "high"},
-        {"wait": 0.3},
-        {"GPIO 18": "low"},
-        {"wait": 0.5}
-      ]
-    },
-    "turn-on": {
-      "uses": [
-        {
-          "name": "GPIO 19",
-          "type": "GPIO",
-          "value": 19
-        }
-      ],
-      "action": [
-        {"GPIO 19": "high"}
-      ]
-    },
-    "turn-off": {
-      "uses": [
-        {
-          "name": "GPIO 19",
-          "type": "GPIO",
-          "value": 19
-        }
-      ],
-      "action": [
-        {"GPIO 19": "low"}
-      ]
-    }
-  },
-  "GPIO": {
-    "18": {
-      "mode": "output",
-      "state": "low"
-    },
-    "19": {
-      "mode": "output",
-      "state": "low"
-    }
-  }
-}
-JSON
+if [[ ! -f "${PROJECT_DIR}/data/app.json" ]]; then
+  echo "Creating default data/app.json from data/app.example.json..."
+  cp "${PROJECT_DIR}/data/app.example.json" "${PROJECT_DIR}/data/app.json"
+fi
+
+if [[ ! -f "${PROJECT_DIR}/data/secrets.json" ]]; then
+  echo "Creating default data/secrets.json from data/secrets.example.json..."
+  cp "${PROJECT_DIR}/data/secrets.example.json" "${PROJECT_DIR}/data/secrets.json"
 fi
 
 if [[ "${INSTALL_SERVICE}" -eq 1 ]]; then
@@ -231,7 +167,7 @@ echo
 echo "Installation complete."
 echo "Edit configuration before first production run:"
 echo "  ${PROJECT_DIR}/.env"
-echo "  ${PROJECT_DIR}/data/rpi.json"
+echo "  ${PROJECT_DIR}/data/app.json"
 echo
 echo "Manual run:"
 echo "  ${VENV_DIR}/bin/python -m app.command.service --host ${HOST} --port ${PORT}"

@@ -120,7 +120,7 @@ def _bearer_token(authorization: str | None) -> str | None:
 
 def _validate_serial_number(serial_number: str) -> JSONResponse | None:
     config = load_config()
-    if serial_number != config.test_serial_number:
+    if serial_number != config.test_serial_code:
         return _error(404, "Device not found.", "DEVICE_NOT_FOUND")
 
     return None
@@ -208,9 +208,9 @@ async def request_jobs(request: Request) -> dict[str, Any]:
 @runtime_router.post("/api/device-auth/long-token")
 def issue_long_token(payload: LongTokenRequest):
     config = load_config()
-    if payload.serial_number != config.test_serial_number:
+    if payload.serial_number != config.test_serial_code:
         return _error(404, "Device not found.", "DEVICE_NOT_FOUND")
-    if payload.secret != config.test_secret:
+    if payload.secret != config.test_secret_code:
         return _error(400, "Device secret is invalid.", "DEVICE_SECRET_INVALID")
 
     long_token = f"test-long-{uuid4().hex}"

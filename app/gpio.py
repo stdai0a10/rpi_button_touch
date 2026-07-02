@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.config import RPI_CONFIG_PATH
+from app.config import APP_CONFIG_PATH, load_config
 
 
 class RpiConfigError(ValueError):
@@ -31,7 +31,7 @@ _GPIO_SERVICE: GpioService | None = None
 _GPIO_SERVICE_LOCK = threading.Lock()
 
 
-def _read_rpi_config(path: Path = RPI_CONFIG_PATH) -> dict[str, Any]:
+def _read_rpi_config(path: Path = APP_CONFIG_PATH) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)
 
@@ -93,7 +93,9 @@ def _command_name(job_name: str) -> str:
     return job_name.replace("_", " ").replace("-", " ").title().replace(" ", "")
 
 
-def _parse_gpio_uses(uses: Any, gpio_config: dict[int, dict[str, Any]]) -> dict[str, GpioUse]:
+def _parse_gpio_uses(
+    uses: Any, gpio_config: dict[int, dict[str, Any]]
+) -> dict[str, GpioUse]:
     if not isinstance(uses, list):
         raise RpiConfigError("job uses must be a list")
 
@@ -148,7 +150,9 @@ def _function_jobs(rpi_config: dict[str, Any], function_code: str) -> list[str]:
 
     jobs = function_config.get("jobs", [])
     if not isinstance(jobs, list) or not all(isinstance(item, str) for item in jobs):
-        raise RpiConfigError(f"function.{function_code}.jobs must be a list of job names")
+        raise RpiConfigError(
+            f"function.{function_code}.jobs must be a list of job names"
+        )
 
     return jobs
 
@@ -161,18 +165,19 @@ class GpioController:
         self.simulated = True
 
         try:
-            import pigpio
+            import pigpio # pylint: disable=import-outside-toplevel
         except ImportError:
             return
 
         pi = pigpio.pi(show_errors=False)
-        if not pi.connected:
+        if pi.connected:
+            self._pigpio = pigpio
+            self._pi = pi
+            self.simulated = False
+        elif load_config().simulate_gpio:
             pi.stop()
-            return
-
-        self._pigpio = pigpio
-        self._pi = pi
-        self.simulated = False
+        else:
+            raise RpiConfigError("Failed to connect to pigpio daemon")
 
     def setup_all(self) -> None:
         for pin, config in self._gpio_config.items():
@@ -217,8 +222,12 @@ class GpioService:
     def execute_job(self, job_name: str, job_config: dict[str, Any]) -> TouchResult:
         uses = _parse_gpio_uses(job_config.get("uses", []), self._gpio_config)
         action = job_config.get("action", [])
-        if not isinstance(action, list) or not all(isinstance(item, dict) for item in action):
-            raise RpiConfigError(f"job.{job_name}.action must be a list of action objects")
+        if not isinstance(action, list) or not all(
+            isinstance(item, dict) for item in action
+        ):
+            raise RpiConfigError(
+                f"job.{job_name}.action must be a list of action objects"
+            )
 
         steps: list[dict[str, Any]] = []
         with self._lock:
@@ -250,7 +259,7 @@ class GpioService:
         self._controller.close()
 
 
-def initialize_gpio_service(path: Path = RPI_CONFIG_PATH) -> GpioService:
+def initialize_gpio_service(path: Path = APP_CONFIG_PATH) -> GpioService:
     global _GPIO_SERVICE
 
     with _GPIO_SERVICE_LOCK:
@@ -286,7 +295,10 @@ def execute_rpi_job(job_name: str) -> TouchResult:
 
 def execute_function(function_code: str) -> list[TouchResult]:
     rpi_config = _read_rpi_config()
-    return [execute_rpi_job(job_name) for job_name in _function_jobs(rpi_config, function_code)]
+    return [
+        execute_rpi_job(job_name)
+        for job_name in _function_jobs(rpi_config, function_code)
+    ]
 
 
 def configured_function_codes() -> list[str]:
