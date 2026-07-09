@@ -132,7 +132,7 @@ def _post_json(
 def _request_long_token(config: AppConfig) -> str:
     body = _post_json(
         config,
-        "/api/device-auth/long-token",
+        "/device-auth/long-token",
         {
             "name": config.name,
             "version": config.version,
@@ -151,7 +151,7 @@ def _request_long_token(config: AppConfig) -> str:
 def _request_access_token(config: AppConfig, long_token: str) -> str:
     body = _post_json(
         config,
-        f"/api/devices/{config.serial_code}/access-tokens",
+        f"/devices/{config.serial_code}/access-tokens",
         token=long_token,
     )
     data = _response_data(body)
@@ -191,7 +191,7 @@ def _ensure_access_token(config: AppConfig, force_refresh: bool = False) -> str:
 def _poll_job(config: AppConfig, access_token: str) -> dict[str, Any] | None:
     body = _post_json(
         config,
-        f"/api/devices/{config.serial_code}/poll",
+        f"/devices/{config.serial_code}/poll",
         {
             "status": "idle",
             "current_job_id": None,
@@ -277,7 +277,7 @@ def _report_progress(
 ) -> str:
     _, access_token = _post_access_json(
         config,
-        f"/api/device-jobs/{job_id}/progress",
+        f"/device-jobs/{job_id}/progress",
         {
             "progress": progress,
             "message": message[:255],
@@ -297,7 +297,7 @@ def _report_complete(
 ) -> str:
     _, access_token = _post_access_json(
         config,
-        f"/api/device-jobs/{job_id}/complete",
+        f"/device-jobs/{job_id}/complete",
         payload,
         access_token,
     )

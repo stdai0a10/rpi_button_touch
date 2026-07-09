@@ -13,7 +13,7 @@ from app.config import load_config
 
 router = APIRouter()
 router.prefix = "/api/test"
-runtime_router = APIRouter()
+router.tags = ["Test"]
 
 _runtime_state: dict[str, Any] = {
     "long_token": None,
@@ -161,8 +161,8 @@ def _job_response(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@router.post("/verify")
-def verify(payload: VerifyRequest, request: Request) -> dict[str, Any]:
+@router.post("/connection")
+def connection(payload: VerifyRequest, request: Request) -> dict[str, Any]:
     config = load_config()
     verified = (
         payload.serial_code == config.serial_code
@@ -205,7 +205,7 @@ async def request_jobs(request: Request) -> dict[str, Any]:
     }
 
 
-@runtime_router.post("/api/device-auth/long-token")
+@router.post("/device-auth/long-token")
 def issue_long_token(payload: LongTokenRequest):
     config = load_config()
     if payload.serial_number != config.test_serial_code:
@@ -228,7 +228,7 @@ def issue_long_token(payload: LongTokenRequest):
     )
 
 
-@runtime_router.post("/api/devices/{serial_number}/access-tokens")
+@router.post("/devices/{serial_number}/access-tokens")
 def issue_access_token(
     serial_number: str,
     authorization: str | None = Header(default=None),
@@ -251,7 +251,7 @@ def issue_access_token(
     )
 
 
-@runtime_router.post("/api/devices/{serial_number}/poll")
+@router.post("/devices/{serial_number}/poll")
 def poll_job(
     serial_number: str,
     payload: PollRequest,
@@ -292,7 +292,7 @@ def poll_job(
     )
 
 
-@runtime_router.post("/api/device-jobs/{job_id}/progress")
+@router.post("/device-jobs/{job_id}/progress")
 def report_progress(
     job_id: str,
     payload: ProgressRequest,
@@ -317,7 +317,7 @@ def report_progress(
     return _success(_job_response(job))
 
 
-@runtime_router.post("/api/device-jobs/{job_id}/complete")
+@router.post("/device-jobs/{job_id}/complete")
 def complete_job(
     job_id: str,
     payload: CompleteRequest,

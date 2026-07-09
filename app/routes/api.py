@@ -11,12 +11,7 @@ from fastapi import APIRouter
 from app.config import load_config
 from app.gpio import execute_touch
 
-
 router = APIRouter()
-
-
-def _verify_url(service_url: str) -> str:
-    return f"{service_url.rstrip('/')}/verify"
 
 
 def _parse_json_body(raw_body: str) -> Any:
@@ -40,13 +35,12 @@ def _verification_payload(body: Any) -> dict[str, Any]:
     return body
 
 
-def _read_service_verify(
-    service_url: str,
-    service_token: str,
+def _get_service_connection(
+    service_api_url: str,
     serial_code: str,
     secret_code: str,
 ) -> dict[str, bool]:
-    if not service_url:
+    if not service_api_url:
         return {
             "connection": False,
             "verified": False,
@@ -57,10 +51,8 @@ def _read_service_verify(
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-    if service_token:
-        headers["Authorization"] = f"Bearer {service_token}"
 
-    url = _verify_url(service_url)
+    url = f"{service_api_url.rstrip('/')}/connection"
     payload = json.dumps(
         {
             "serial_code": serial_code,
@@ -121,9 +113,8 @@ def touch() -> dict[str, Any]:
 @router.get("/api/info")
 def info() -> dict[str, Any]:
     config = load_config()
-    service_verify = _read_service_verify(
-        config.service_url,
-        config.service_token,
+    service_connection = _get_service_connection(
+        config.service_api_url,
         config.serial_code,
         config.secret_code,
     )
@@ -132,9 +123,9 @@ def info() -> dict[str, Any]:
         "error": False,
         "data": {
             "serial_code": config.serial_code,
-            "connection": service_verify["connection"],
-            "verified": service_verify["verified"],
-            "blocked": service_verify["blocked"],
+            "connection": service_connection["connection"],
+            "verified": service_connection["verified"],
+            "blocked": service_connection["blocked"],
             "job_runner_enabled": config.job_runner_enabled,
             "job_request_interval_seconds": config.job_request_interval_seconds,
         },

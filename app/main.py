@@ -36,4 +36,3 @@ app.include_router(web.router)
 if config.env != "production" and config.test_mode:
     from app.routes import test # pylint: disable=import-outside-toplevel
     app.include_router(test.router)
-    app.include_router(test.runtime_router)
