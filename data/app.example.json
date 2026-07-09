@@ -26,16 +26,16 @@
       ]
     },
     "turn-on": {
-      "uses": [{ "name": "GPIO 19", "type": "GPIO", "value": 19 }],
-      "action": [{ "GPIO 19": "high" }]
+      "uses": [{ "name": "GPIO 17", "type": "GPIO", "value": 17 }],
+      "action": [{ "GPIO 17": "high" }]
     },
     "turn-off": {
-      "uses": [{ "name": "GPIO 19", "type": "GPIO", "value": 19 }],
-      "action": [{ "GPIO 19": "low" }]
+      "uses": [{ "name": "GPIO 17", "type": "GPIO", "value": 17 }],
+      "action": [{ "GPIO 17": "low" }]
     }
   },
   "GPIO": {
-    "18": { "mode": "output", "state": "low" },
-    "19": { "mode": "output", "state": "low" }
+    "17": { "mode": "output", "state": "low" },
+    "18": { "mode": "output", "state": "low" }
   }
 }
