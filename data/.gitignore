@@ -1,2 +1,4 @@
 *
 !.gitignore
+!app.example.json
+!secrets.example.json

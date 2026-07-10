@@ -60,7 +60,7 @@ _TOKEN_STATE = DeviceTokenState()
 
 
 def _api_url(config: AppConfig, path: str) -> str:
-    return f"{config.service_url.rstrip('/')}{path}"
+    return f"{config.service_api_url.rstrip('/')}/{path.lstrip('/')}"
 
 
 def _parse_json_body(raw_body: str) -> Any:
@@ -132,10 +132,10 @@ def _post_json(
 def _request_long_token(config: AppConfig) -> str:
     body = _post_json(
         config,
-        "/api/device-auth/long-token",
+        "/device-auth/long-token",
         {
-            "name": config.app_name,
-            "version": config.app_version,
+            "name": config.name,
+            "version": config.version,
             "serial_number": config.serial_code,
             "secret": config.secret_code,
             "capabilities": configured_function_codes(),
@@ -151,7 +151,7 @@ def _request_long_token(config: AppConfig) -> str:
 def _request_access_token(config: AppConfig, long_token: str) -> str:
     body = _post_json(
         config,
-        f"/api/devices/{config.serial_code}/access-tokens",
+        f"/devices/{config.serial_code}/access-tokens",
         token=long_token,
     )
     data = _response_data(body)
@@ -191,7 +191,7 @@ def _ensure_access_token(config: AppConfig, force_refresh: bool = False) -> str:
 def _poll_job(config: AppConfig, access_token: str) -> dict[str, Any] | None:
     body = _post_json(
         config,
-        f"/api/devices/{config.serial_code}/poll",
+        f"/devices/{config.serial_code}/poll",
         {
             "status": "idle",
             "current_job_id": None,
@@ -212,7 +212,7 @@ def _poll_job(config: AppConfig, access_token: str) -> dict[str, Any] | None:
 
 def request_jobs(config: AppConfig | None = None) -> list[dict[str, Any]]:
     config = config or load_config()
-    if not config.service_url:
+    if not config.service_api_url:
         return []
 
     access_token = _ensure_access_token(config)
@@ -277,7 +277,7 @@ def _report_progress(
 ) -> str:
     _, access_token = _post_access_json(
         config,
-        f"/api/device-jobs/{job_id}/progress",
+        f"/device-jobs/{job_id}/progress",
         {
             "progress": progress,
             "message": message[:255],
@@ -297,7 +297,7 @@ def _report_complete(
 ) -> str:
     _, access_token = _post_access_json(
         config,
-        f"/api/device-jobs/{job_id}/complete",
+        f"/device-jobs/{job_id}/complete",
         payload,
         access_token,
     )
@@ -411,13 +411,13 @@ def _failed_job_result(
 
 def poll_and_run_jobs(config: AppConfig | None = None) -> JobPollResult:
     config = config or load_config()
-    if not config.service_url:
+    if not config.service_api_url:
         return JobPollResult(
             connection=False,
             jobs_received=0,
             jobs_executed=0,
             results=[],
-            error="SERVICE_URL is not configured",
+            error="SERVICE_API_URL is not configured",
         )
 
     if not _JOB_LOCK.acquire(blocking=False):

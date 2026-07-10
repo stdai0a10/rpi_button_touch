@@ -8,25 +8,27 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SECRETS_PATH = PROJECT_ROOT / "data" / "secrets.json"
-RPI_CONFIG_PATH = PROJECT_ROOT / "data" / "rpi.json"
+APP_CONFIG_PATH = PROJECT_ROOT / "data" / "app.json"
 
 
 @dataclass(frozen=True)
 class AppConfig:
-    app_name: str
-    app_version: str
+    name: str
+    version: str
+    env: str
+    debug: bool
     serial_code: str
     secret_code: str
-    service_url: str
-    service_token: str
+    service_api_url: str
     job_runner_enabled: bool
     job_request_interval_seconds: int
     job_request_timeout_seconds: int
-    test_serial_number: str
-    test_secret: str
+    simulate_gpio: bool
+    test_mode: bool
+    test_serial_code: str
+    test_secret_code: str
     test_product_function_code: str
 
 
@@ -94,43 +96,28 @@ def _read_secrets(path: Path = SECRETS_PATH) -> dict[str, Any]:
 def load_config() -> AppConfig:
     load_dotenv(PROJECT_ROOT / ".env")
     secrets = _read_secrets()
+    serial_code = _non_empty_env("SERIAL_CODE") or secrets.get("serial_code", "")
+    secret_code = _non_empty_env("SECRET_CODE") or secrets.get("secret_code", "")
+    service_api_url = _non_empty_env("SERVICE_API_URL") or secrets.get(
+        "service_api_url", "http://localhost:8000/api/test"
+    )
 
     return AppConfig(
-        app_name=(
-            _non_empty_env("APP_NAME")
-            or str(secrets.get("app_name", "rpi-button-touch"))
-        ),
-        app_version=(
-            _non_empty_env("APP_VERSION") or str(secrets.get("app_version", "1.0.0"))
-        ),
-        serial_code=_non_empty_env("SERIAL_CODE") or str(secrets.get("serial_code", "")),
-        secret_code=_non_empty_env("SECRET_CODE") or str(secrets.get("secret_code", "")),
-        service_url=_non_empty_env("SERVICE_URL") or str(secrets.get("service_url", "")),
-        service_token=(
-            _non_empty_env("SERVICE_TOKEN") or str(secrets.get("service_token", ""))
-        ),
-        job_runner_enabled=_env_bool(
-            "JOB_RUNNER_ENABLED", _as_bool(secrets.get("job_runner_enabled"), False)
-        ),
-        job_request_interval_seconds=_env_int(
-            "JOB_REQUEST_INTERVAL_SECONDS",
-            _as_int(secrets.get("job_request_interval_seconds"), 15),
-        ),
-        job_request_timeout_seconds=_env_int(
-            "JOB_REQUEST_TIMEOUT_SECONDS",
-            _as_int(secrets.get("job_request_timeout_seconds"), 10),
-        ),
-        test_serial_number=(
-            _non_empty_env("TEST_SERIAL_NUMBER")
-            or str(secrets.get("test_serial_number", "TEST0001"))
-        ),
-        test_secret=(
-            _non_empty_env("TEST_SECRET") or str(secrets.get("test_secret", "TEST0001"))
-        ),
+        name=_non_empty_env("APP_NAME") or "rpi-button-touch",
+        version=_non_empty_env("APP_VERSION") or "1.0.0",
+        env=_non_empty_env("APP_ENV") or "production",
+        debug=_env_bool("APP_DEBUG", False),
+        serial_code=serial_code,
+        secret_code=secret_code,
+        service_api_url=service_api_url,
+        job_runner_enabled=_env_bool("JOB_RUNNER_ENABLED", True),
+        job_request_interval_seconds=_env_int("JOB_REQUEST_INTERVAL_SECONDS", 15),
+        job_request_timeout_seconds=_env_int("JOB_REQUEST_TIMEOUT_SECONDS", 10),
+        simulate_gpio=_env_bool("SIMULATE_GPIO", False),
+        test_mode=_env_bool("TEST_MODE", False),
+        test_serial_code=_non_empty_env("TEST_SERIAL_CODE") or serial_code,
+        test_secret_code=_non_empty_env("TEST_SECRET_CODE") or secret_code,
         test_product_function_code=(
-            _non_empty_env("TEST_PRODUCT_FUNCTION_CODE")
-            or str(
-                secrets.get("test_product_function_code", "PFN-WRKWI2STAEYU")
-            )
+            _non_empty_env("TEST_PRODUCT_FUNCTION_CODE") or "PFN-MIRAICHANKWI"
         ),
     )
