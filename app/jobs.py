@@ -30,12 +30,19 @@ class DeviceApiError(Exception):
     status_code: int
     message: str
     code: str | None = None
+    method: str | None = None
+    url: str | None = None
 
     def __str__(self) -> str:
+        status = str(self.status_code)
         if self.code:
-            return f"{self.status_code} {self.code}: {self.message}"
+            status = f"{status} {self.code}"
 
-        return f"{self.status_code}: {self.message}"
+        detail = f"{status}: {self.message}"
+        if self.method or self.url:
+            return f"{self.method or '???'} {self.url or '?'} returned {detail}"
+
+        return detail
 
 
 @dataclass(frozen=True)
@@ -101,8 +108,9 @@ def _post_json(
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
 
+    request_url = _api_url(config, path)
     request = UrlRequest(
-        _api_url(config, path),
+        request_url,
         data=data,
         headers=_headers(token),
         method="POST",
@@ -121,12 +129,20 @@ def _post_json(
         message = str(error)
         code = None
 
+        LOGGER.debug('%r\n%s', error, raw_body)
+
         if isinstance(body, dict):
             message = str(body.get("message") or message)
             raw_code = body.get("code")
             code = str(raw_code) if raw_code is not None else None
 
-        raise DeviceApiError(error.code, message, code) from error
+        raise DeviceApiError(
+            error.code,
+            message,
+            code,
+            method=request.get_method(),
+            url=str(error.url or request_url),
+        ) from error
 
 
 def _request_long_token(config: AppConfig) -> str:
@@ -134,11 +150,11 @@ def _request_long_token(config: AppConfig) -> str:
         config,
         "/device-auth/long-token",
         {
-            "name": config.name,
-            "version": config.version,
+            # "name": config.name,
+            # "version": config.version,
             "serial_number": config.serial_code,
             "secret": config.secret_code,
-            "capabilities": configured_function_codes(),
+            # "capabilities": configured_function_codes(),
         },
     )
     data = _response_data(body)
@@ -189,6 +205,8 @@ def _ensure_access_token(config: AppConfig, force_refresh: bool = False) -> str:
 
 
 def _poll_job(config: AppConfig, access_token: str) -> dict[str, Any] | None:
+    LOGGER.info("Polling device jobs")
+
     body = _post_json(
         config,
         f"/devices/{config.serial_code}/poll",
@@ -199,14 +217,17 @@ def _poll_job(config: AppConfig, access_token: str) -> dict[str, Any] | None:
         token=access_token,
     )
     if body is None:
+        LOGGER.debug("Device job poll returned no content")
         return None
 
     data = _response_data(body)
     if data is None:
+        LOGGER.debug("Device job poll returned no job")
         return None
     if not isinstance(data, dict):
         raise DeviceApiError(502, "Poll response data must be an object")
 
+    LOGGER.info("Device job poll returned job: %s", _job_id(data) or "unknown")
     return data
 
 
@@ -430,6 +451,11 @@ def poll_and_run_jobs(config: AppConfig | None = None) -> JobPollResult:
         )
 
     try:
+        LOGGER.info(
+            "Job poll tick started for serial %s with %s second interval",
+            config.serial_code,
+            config.job_request_interval_seconds,
+        )
         jobs = request_jobs(config)
         access_token = _ensure_access_token(config)
         results: list[JobExecutionResult] = []
@@ -441,6 +467,11 @@ def poll_and_run_jobs(config: AppConfig | None = None) -> JobPollResult:
                 results.append(_failed_job_result(job, error))
 
         executed = sum(1 for result in results if result.success)
+        LOGGER.info(
+            "Job poll tick finished: received=%s executed=%s",
+            len(jobs),
+            executed,
+        )
 
         return JobPollResult(
             connection=True,

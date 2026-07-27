@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 import uvicorn
 
+from app.config import load_config
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Button Clicker test server.")
@@ -16,6 +18,13 @@ def main() -> None:
         help="Reload the server when Python source files change.",
     )
     args = parser.parse_args()
+    config = load_config()
+    log_level = "debug" if config.debug else "info"
+
+    logging.basicConfig(
+        level=logging.DEBUG if config.debug else logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
 
     uvicorn.run(
         "app.main:app",
@@ -23,6 +32,7 @@ def main() -> None:
         port=args.port,
         reload=args.reload,
         reload_dirs=["app"],
+        log_level=log_level,
     )
 
 
