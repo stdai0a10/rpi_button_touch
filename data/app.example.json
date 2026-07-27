@@ -17,7 +17,10 @@
   },
   "job": {
     "touch": {
-      "uses": [{ "name": "GPIO 18", "type": "GPIO", "value": 18 }],
+      "uses": [
+        { "name": "GPIO 18", "type": "GPIO", "value": 18, "final": "reset" },
+        { "name": "wait", "type": "TIME" }
+      ],
       "action": [
         { "GPIO 18": "high" },
         { "wait": 0.3 },
@@ -26,11 +29,17 @@
       ]
     },
     "turn-on": {
-      "uses": [{ "name": "GPIO 17", "type": "GPIO", "value": 17 }],
+      "uses": [
+        { "name": "GPIO 17", "type": "GPIO", "value": 17, "final": "keep" },
+        { "name": "wait", "type": "TIME" }
+      ],
       "action": [{ "GPIO 17": "high" }]
     },
     "turn-off": {
-      "uses": [{ "name": "GPIO 17", "type": "GPIO", "value": 17 }],
+      "uses": [
+        { "name": "GPIO 17", "type": "GPIO", "value": 17, "final": "keep" },
+        { "name": "wait", "type": "TIME" }
+      ],
       "action": [{ "GPIO 17": "low" }]
     }
   },

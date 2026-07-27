@@ -4,10 +4,31 @@ import json
 import threading
 import time
 from dataclasses import dataclass
+from enum import StrEnum, unique
 from pathlib import Path
 from typing import Any
 
 from app.config import APP_CONFIG_PATH, load_config
+
+
+@unique
+class ResourceType(StrEnum):
+    GPIO = "GPIO"
+    TIME = "TIME"
+
+
+@unique
+class ResourceMode(StrEnum):
+    INPUT = "input"
+    OUTPUT = "output"
+
+
+@unique
+class ResourceState(StrEnum):
+    HIGH = "high"
+    LOW = "low"
+    KEEP = "keep"
+    RESET = "reset"
 
 
 class RpiConfigError(ValueError):
@@ -24,7 +45,11 @@ class TouchResult:
 @dataclass(frozen=True)
 class GpioUse:
     name: str
+    type: str
     pin: int
+    mode: str
+    state: str
+    final: str
 
 
 _GPIO_SERVICE: GpioService | None = None
@@ -93,36 +118,80 @@ def _command_name(job_name: str) -> str:
     return job_name.replace("_", " ").replace("-", " ").title().replace(" ", "")
 
 
-def _parse_gpio_uses(
-    uses: Any, gpio_config: dict[int, dict[str, Any]]
+def _parse_job_uses(
+    job: dict[str, Any], gpio_config: dict[int, dict[str, Any]]
 ) -> dict[str, GpioUse]:
+    uses = job.get("uses", [])
+
     if not isinstance(uses, list):
-        raise RpiConfigError("job uses must be a list")
+        raise RpiConfigError("job.uses must be a list")
 
     parsed: dict[str, GpioUse] = {}
     for index, item in enumerate(uses):
         if isinstance(item, str):
             name = item
+            resource_type = ResourceType.GPIO
             pin = _gpio_number_from_label(item)
+            final = ResourceState.RESET
         elif isinstance(item, dict):
             resource_type = str(item.get("type", "")).upper()
-            if resource_type != "GPIO":
-                raise RpiConfigError(f"job uses[{index}].type must be GPIO")
 
             name = str(item.get("name", "")).strip()
             if not name:
-                raise RpiConfigError(f"job uses[{index}].name is required")
+                raise RpiConfigError(f"job.uses[{index}].name is required")
 
-            pin = _pin_number(item.get("value"), f"job uses[{index}].value")
+            if resource_type == ResourceType.GPIO:
+                pin = _pin_number(item.get("value"), f"job.uses[{index}].value")
+            elif resource_type == ResourceType.TIME:
+                pin = -1
+            else:
+                raise RpiConfigError(f"job.uses[{index}].type is unsupported")
+
+            final = str(item.get("final", ResourceState.RESET)).lower()
         else:
-            raise RpiConfigError("job uses must contain GPIO resource objects")
+            raise RpiConfigError("job.uses must contain GPIO resource objects")
 
-        if pin not in gpio_config:
+        if pin in gpio_config:
+            mode = str(gpio_config[pin].get("mode", ResourceMode.OUTPUT)).lower()
+            state = str(gpio_config[pin].get("state", ResourceState.LOW)).lower()
+        elif resource_type == ResourceType.TIME:
+            mode = ResourceMode.INPUT
+            state = ResourceState.LOW
+        else:
             raise RpiConfigError(f"{name} references undeclared GPIO pin {pin}")
+
         if name in parsed:
             raise RpiConfigError(f"Duplicate job use name: {name}")
 
-        parsed[name] = GpioUse(name=name, pin=pin)
+        parsed[name] = GpioUse(
+            name=name, type=resource_type, pin=pin, mode=mode, state=state, final=final
+        )
+
+    return parsed
+
+
+def _parse_job_actions(
+    job: dict[str, Any], uses: dict[str, GpioUse]
+) -> list[dict[str, Any]]:
+    actions = job.get("actions") or job.get("action") or []
+
+    if not isinstance(actions, list):
+        raise RpiConfigError("job.actions must be a list of action objects")
+
+    parsed = []
+    for idx, item in enumerate(actions):
+        if not isinstance(item, dict):
+            raise RpiConfigError(f"job.actions[{idx}] must be a action object")
+
+        key = item.get("use") or next(filter(lambda i: i in uses, item.keys()), None)
+        if key not in uses:
+            raise RpiConfigError(f"job.actions[{idx}] must reference a use")
+
+        val = item["set"] if "set" in item else item.get(key)
+        if val is None:
+            raise RpiConfigError(f"job.actions[{idx}] must have a valid value")
+
+        parsed.append({"use": key, "set": val})
 
     return parsed
 
@@ -164,17 +233,21 @@ class GpioController:
         self._pi: Any | None = None
         self.simulated = True
 
+        app_config = load_config()
+
         try:
-            import pigpio # pylint: disable=import-outside-toplevel
-        except ImportError:
-            return
+            import pigpio  # pylint: disable=import-outside-toplevel
+        except ImportError as e:
+            if app_config.simulate_gpio:
+                return
+            raise e
 
         pi = pigpio.pi(show_errors=False)
         if pi.connected:
             self._pigpio = pigpio
             self._pi = pi
             self.simulated = False
-        elif load_config().simulate_gpio:
+        elif app_config.simulate_gpio:
             pi.stop()
         else:
             raise RpiConfigError("Failed to connect to pigpio daemon")
@@ -220,40 +293,47 @@ class GpioService:
         return self._controller.simulated
 
     def execute_job(self, job_name: str, job_config: dict[str, Any]) -> TouchResult:
-        uses = _parse_gpio_uses(job_config.get("uses", []), self._gpio_config)
-        action = job_config.get("action", [])
-        if not isinstance(action, list) or not all(
-            isinstance(item, dict) for item in action
-        ):
-            raise RpiConfigError(
-                f"job.{job_name}.action must be a list of action objects"
-            )
+        uses = _parse_job_uses(job_config, self._gpio_config)
+        actions = _parse_job_actions(job_config, uses)
 
         steps: list[dict[str, Any]] = []
         with self._lock:
-            for item in action:
-                for key, value in item.items():
-                    if key == "wait":
-                        seconds = float(value)
-                        time.sleep(seconds)
-                        steps.append({"wait": seconds})
-                        continue
-
-                    use = uses.get(key)
-                    if use is None:
-                        raise RpiConfigError(
-                            f"job.{job_name}.action references undeclared use: {key}"
-                        )
-
-                    state = str(value)
-                    self._controller.write(use.pin, state)
-                    steps.append({key: state.lower()})
+            try:
+                for item in actions:
+                    steps.append(self._execute_action(item, uses))
+            finally:
+                self._reset_uses(uses)
 
         return TouchResult(
             command=_command_name(job_name),
             simulated=self.simulated,
             steps=steps,
         )
+
+    def _execute_action(
+        self, action: dict[str, Any], uses: dict[str, GpioUse]
+    ) -> dict[str, Any]:
+        key = action["use"]
+        value = action["set"]
+        use = uses[key]
+
+        if use.type == ResourceType.GPIO and use.mode == "output":
+            value = str(value).lower()
+            self._controller.write(use.pin, value)
+        elif use.type == ResourceType.TIME:
+            value = float(value or 0)
+            time.sleep(value)
+
+        return {key: value}
+
+    def _reset_uses(self, uses: dict[str, GpioUse]):
+        for use in uses.values():
+            if (
+                use.type == ResourceType.GPIO
+                and use.mode == ResourceMode.OUTPUT
+                and use.final == ResourceState.RESET
+            ):
+                self._controller.write(use.pin, use.state)
 
     def close(self) -> None:
         self._controller.close()
