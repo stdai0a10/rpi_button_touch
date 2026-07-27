@@ -6,7 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response, status
 
 from app.config import load_config
 from app.gpio import execute_touch
@@ -91,10 +91,11 @@ def _get_service_connection(
 
 
 @router.post("/api/touch")
-def touch() -> dict[str, Any]:
+def touch(response: Response) -> dict[str, Any]:
     try:
         result = execute_touch()
-    except Exception as error:
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return {
             "error": True,
             "message": str(error),
