@@ -43,7 +43,22 @@
       "action": [{ "GPIO 17": "low" }]
     }
   },
+  "state": {
+    "ready": {
+      "uses": [
+        { "name": "GPIO 14", "type": "GPIO", "value": 14, "final": "keep" }
+      ],
+      "action": [{ "GPIO 14": "high" }]
+    },
+    "stop": {
+      "uses": [
+        { "name": "GPIO 14", "type": "GPIO", "value": 14, "final": "keep" }
+      ],
+      "action": [{ "GPIO 14": "low" }]
+    }
+  },
   "GPIO": {
+    "14": { "mode": "output", "state": "low" },
     "17": { "mode": "output", "state": "low" },
     "18": { "mode": "output", "state": "low" }
   }
