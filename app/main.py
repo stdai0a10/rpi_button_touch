@@ -4,7 +4,11 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 
 from app.config import load_config
-from app.gpio import initialize_gpio_service, shutdown_gpio_service
+from app.gpio import (
+    execute_state,
+    initialize_gpio_service,
+    shutdown_gpio_service,
+)
 from app.routes import api, web
 from app.scheduler import start_job_scheduler, stop_job_scheduler
 
@@ -12,12 +16,19 @@ from app.scheduler import start_job_scheduler, stop_job_scheduler
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     initialize_gpio_service()
-    scheduler = start_job_scheduler()
+    scheduler = None
     try:
+        scheduler = start_job_scheduler()
+        execute_state("ready")
         yield
     finally:
-        stop_job_scheduler(scheduler)
-        shutdown_gpio_service()
+        try:
+            stop_job_scheduler(scheduler)
+        finally:
+            try:
+                execute_state("stop")
+            finally:
+                shutdown_gpio_service()
 
 
 config = load_config()

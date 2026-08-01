@@ -208,6 +208,24 @@ def _job_config(rpi_config: dict[str, Any], job_name: str) -> dict[str, Any]:
     return config
 
 
+def _state_config(
+    rpi_config: dict[str, Any], state_name: str
+) -> dict[str, Any] | None:
+    states = rpi_config.get("state")
+    if states is None:
+        return None
+    if not isinstance(states, dict):
+        raise RpiConfigError("state config must be an object")
+
+    config = states.get(state_name)
+    if config is None:
+        return None
+    if not isinstance(config, dict):
+        raise RpiConfigError(f"state.{state_name} config must be an object")
+
+    return config
+
+
 def _function_jobs(rpi_config: dict[str, Any], function_code: str) -> list[str]:
     functions = rpi_config.get("function", {})
     if not isinstance(functions, dict):
@@ -371,6 +389,15 @@ def _gpio_service() -> GpioService:
 def execute_rpi_job(job_name: str) -> TouchResult:
     rpi_config = _read_rpi_config()
     return _gpio_service().execute_job(job_name, _job_config(rpi_config, job_name))
+
+
+def execute_state(state_name: str) -> TouchResult | None:
+    rpi_config = _read_rpi_config()
+    state_config = _state_config(rpi_config, state_name)
+    if state_config is None:
+        return None
+
+    return _gpio_service().execute_job(state_name, state_config)
 
 
 def execute_function(function_code: str) -> list[TouchResult]:
