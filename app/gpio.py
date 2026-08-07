@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from typing import Any
 
 from app.config import APP_CONFIG_PATH, load_config
 
+LOGGER = logging.getLogger(__name__)
 
 @unique
 class ResourceType(StrEnum):
@@ -394,6 +396,7 @@ def execute_rpi_job(job_name: str) -> TouchResult:
 def execute_state(state_name: str) -> TouchResult | None:
     rpi_config = _read_rpi_config()
     state_config = _state_config(rpi_config, state_name)
+    LOGGER.debug("Executing state: %s", state_name)
     if state_config is None:
         return None
 
