@@ -1,0 +1,8 @@
+fastapi==0.128.8
+uvicorn==0.30.6
+APScheduler==3.11.1
+pigpio==1.78
+python-dotenv==1.2.1
+PyYAML==6.0.3
+python-jose[pycryptodome]==3.5.0
+pycryptodome==3.23.0

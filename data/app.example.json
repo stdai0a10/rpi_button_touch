@@ -1,0 +1,65 @@
+{
+  "product_code": "S-T-DAI-00001-RPI-1",
+  "version": "1.0.0",
+  "function": {
+    "PFN-MIRAICHANKWI": {
+      "jobs": ["touch"],
+      "order": "sequence"
+    },
+    "PFN-SHIZUKAKAWAI": {
+      "jobs": ["turn-on"],
+      "order": "sequence"
+    },
+    "PFN-TSUBASAKAWAI": {
+      "jobs": ["turn-off"],
+      "order": "sequence"
+    }
+  },
+  "job": {
+    "touch": {
+      "uses": [
+        { "name": "GPIO 18", "type": "GPIO", "value": 18, "final": "reset" },
+        { "name": "wait", "type": "TIME" }
+      ],
+      "action": [
+        { "GPIO 18": "high" },
+        { "wait": 0.3 },
+        { "GPIO 18": "low" },
+        { "wait": 0.5 }
+      ]
+    },
+    "turn-on": {
+      "uses": [
+        { "name": "GPIO 17", "type": "GPIO", "value": 17, "final": "keep" },
+        { "name": "wait", "type": "TIME" }
+      ],
+      "action": [{ "GPIO 17": "high" }]
+    },
+    "turn-off": {
+      "uses": [
+        { "name": "GPIO 17", "type": "GPIO", "value": 17, "final": "keep" },
+        { "name": "wait", "type": "TIME" }
+      ],
+      "action": [{ "GPIO 17": "low" }]
+    }
+  },
+  "state": {
+    "ready": {
+      "uses": [
+        { "name": "GPIO 14", "type": "GPIO", "value": 14, "final": "keep" }
+      ],
+      "action": [{ "GPIO 14": "high" }]
+    },
+    "stop": {
+      "uses": [
+        { "name": "GPIO 14", "type": "GPIO", "value": 14, "final": "keep" }
+      ],
+      "action": [{ "GPIO 14": "low" }]
+    }
+  },
+  "GPIO": {
+    "14": { "mode": "output", "state": "low" },
+    "17": { "mode": "output", "state": "low" },
+    "18": { "mode": "output", "state": "low" }
+  }
+}
